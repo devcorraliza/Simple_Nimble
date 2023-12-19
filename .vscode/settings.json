@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "esp_log.h": "c",
+        "esp_nimble_hci.h": "c",
+        "nimble_port_freertos.h": "c",
+        "esp_bt.h": "c",
+        "nvs_flash.h": "c",
+        "transport.h": "c",
+        "transport_impl.h": "c",
+        "syscfg.h": "c",
+        "inttypes.h": "c",
+        "nimble_port.h": "c",
+        "nimble_npl.h": "c",
+        "ble_hs.h": "c",
+        "hci_common.h": "c"
+    }
+}
