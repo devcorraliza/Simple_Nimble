@@ -5,12 +5,17 @@ BTSNChr::BTSNChr(const char id[37])
     memcpy(this->id, id, 37);
     this->flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE;
     this->min_key_size = 16U;
-    this->access_cb = nullptr;
+    this->on_read_fn = nullptr;
 };
 
-void BTSNChr::setAccessCb(ble_gatt_access_fn *access_cb)
+void BTSNChr::onReadRequest(btsnChr_on_read_fn *fn)
 {
-    this->access_cb = access_cb;
+    this->on_read_fn = fn;
+};
+
+void BTSNChr::onWriteRequest(btsnChr_on_write_fn *fn)
+{
+    this->on_write_fn = fn;
 };
 
 ble_gatt_chr_def *BTSNChr::getDefinition()
@@ -34,8 +39,8 @@ ble_gatt_chr_def *BTSNChr::getDefinition()
 
     characteristic[0] = {
         .uuid = &(*CHARACTERISTIC_UUID).u,
-        .access_cb = this->access_cb,
-        .arg = nullptr,
+        .access_cb = &this->access_cb,
+        .arg = this,
         .descriptors = descriptors,
         .flags = this->flags,
         .min_key_size = this->min_key_size,
@@ -60,10 +65,34 @@ void BTSNChr::setWritable(bool writable)
 {
     if (writable)
     {
-        this->flags |= BLE_GATT_CHR_F_WRITE;
+        this->flags |= BLE_GATT_CHR_F_WRITE_ENC;
     }
     else
     {
-        this->flags &= ~BLE_GATT_CHR_F_WRITE;
+        this->flags &= ~BLE_GATT_CHR_F_WRITE_ENC;
     }
+};
+
+int BTSNChr::access_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+    if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR)
+    {
+        if (((BTSNChr *)arg)->on_read_fn != nullptr)
+        {
+            const SizedPointer sptr = ((BTSNChr *)arg)->on_read_fn();
+            os_mbuf_append(ctxt->om, sptr.ptr, sptr.size);
+        }
+    }
+    if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR)
+    {
+        const SizedPointer sptr = {.ptr = ctxt->om->om_data, .size = OS_MBUF_PKTLEN(ctxt->om)};
+
+        if (((BTSNChr *)arg)->on_write_fn != nullptr)
+        {
+            ((BTSNChr *)arg)->on_write_fn(sptr);
+        }
+    }
+    // printf("\naccess_cb called %i %i %i %i %i\n", ctxt->op, BLE_GATT_ACCESS_OP_READ_CHR,
+    //        BLE_GATT_ACCESS_OP_WRITE_CHR, BLE_GATT_ACCESS_OP_READ_DSC, BLE_GATT_ACCESS_OP_WRITE_DSC);
+    return 0;
 };
